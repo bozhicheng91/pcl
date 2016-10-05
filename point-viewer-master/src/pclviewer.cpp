@@ -80,6 +80,7 @@ PCLViewer::load(QString &filename)
     QObject::connect(&dialog, SIGNAL(canceled()), &futureWatcher, SLOT(cancel()));
 
     // note: `run()` can not be canceled
+    //重新开启一个线程来执行程序. 参数为调用的程序和该程序的参数.
     QFuture<void> future = QtConcurrent::run(this, &PCLViewer::loadAsync, filename);
 
     // start loading
@@ -97,9 +98,11 @@ PCLViewer::paintCloud()
 {
     // Only 1 of the button can be checked at the time (mutual exclusivity) in a group of radio buttons
 
-    viewer_->addPolygonMesh(triangles, "mesh");
+    //将网格添加到viewer_视图中
+  
     
     
+    //设置选择不同的模型显示方式
     if (ui->radioButton_point->isChecked ())
         {
             PCL_INFO("point mode  chosen\n");
@@ -134,7 +137,7 @@ PCLViewer::browseFileButtonPressed ()
         {
             dir = fi.dir().path();
         } else {
-        dir = "/home/";
+        dir = "../data/";
     }
 
     //getOpenFileName 通过窗口选择要打开的文件, 并返回选择的文件完整路径和文件名.    
@@ -207,6 +210,7 @@ PCLViewer::loadAsync(QString &filename)
         }
     std::cerr << "点云读入   完成" << std::endl;
     poissonReconstruction();
+    viewer_->addPolygonMesh(triangles, "mesh");
     paintCloud();
     /*
     PointCloudT::Ptr cloud_tmp (new PointCloudT);
