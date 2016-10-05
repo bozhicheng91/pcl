@@ -50,8 +50,8 @@ PCLViewer::PCLViewer (QWidget *parent) :
     
     this->first_time = true;
 
-    QString filename = ui->lineEdit_path->text();
-    load(filename);//加载文件
+  filename = ui->lineEdit_path->text();
+    load();//加载文件
     viewer_->resetCamera ();
     ui->qvtkWidget->update ();
 }
@@ -62,7 +62,7 @@ PCLViewer::~PCLViewer ()
 }
 
 void
-PCLViewer::load(QString &filename) 
+PCLViewer::load() 
 {
     //qprogressdialog 进度对话框, 继承值QDialog类
 
@@ -81,7 +81,8 @@ PCLViewer::load(QString &filename)
 
     // note: `run()` can not be canceled
     //重新开启一个线程来执行程序. 参数为调用的程序和该程序的参数.
-    QFuture<void> future = QtConcurrent::run(this, &PCLViewer::loadAsync, filename);
+    int i =1;
+    QFuture<void> future = QtConcurrent::run(this, &PCLViewer::loadAsync, i);
 
     // start loading
     futureWatcher.setFuture(future);
@@ -100,22 +101,25 @@ PCLViewer::paintCloud()
 
     //将网格添加到viewer_视图中
   
-    
+    addOrUpdateCloud();
     
     //设置选择不同的模型显示方式
     if (ui->radioButton_point->isChecked ())
         {
             PCL_INFO("point mode  chosen\n");
+          
             viewer_->setRepresentationToPointsForAllActors(); 
  
         }
     else if (ui->radioButton_surface->isChecked ())
         {
+          
             PCL_INFO("surface mode  chosen\n");
             viewer_->setRepresentationToSurfaceForAllActors(); 
         }
     else if (ui->radioButton_wireframe->isChecked ())
              {
+            
                  PCL_INFO("wireframe mode  chosen\n");
                  viewer_->setRepresentationToWireframeForAllActors(); 
              }
@@ -141,7 +145,7 @@ PCLViewer::browseFileButtonPressed ()
     }
 
     //getOpenFileName 通过窗口选择要打开的文件, 并返回选择的文件完整路径和文件名.    
-    QString filename = 
+    filename = 
         QFileDialog::getOpenFileName (this, 
                                       tr ("Open point cloud"), 
                                       dir.toStdString().c_str(), 
@@ -157,8 +161,8 @@ PCLViewer::browseFileButtonPressed ()
 void
 PCLViewer::loadFileButtonPressed ()
 {
-    QString filename = ui->lineEdit_path->text();
-    load(filename);
+    filename = ui->lineEdit_path->text();
+    load();
     viewer_->resetCamera ();
     ui->qvtkWidget->update ();
 }
@@ -180,29 +184,34 @@ PCLViewer::pSliderValueChanged (int value)
 // helpers
 
 void
-PCLViewer::addOrUpdateCloud(pcl::visualization::PointCloudColorHandler<pcl::PointXYZRGBA> &handler)
+PCLViewer::addOrUpdateCloud()
 {
     if(first_time) 
         {
 
 
-            poissonReconstruction();
+           
             //viewer_->addPointCloud (cloud_, handler, "cloud");
             viewer_->addPolygonMesh(triangles, "mesh");
+            std::cerr << filename.toStdString() << std::endl;
             first_time = false;
         } 
     else
         {
             // viewer_->updatePointCloud (cloud_, handler, "cloud");
+            // viewer_->updatePolygonMesh(triangles, filename.toStdString ());
+            viewer_->removePolygonMesh("mesh", 0);
             viewer_->addPolygonMesh(triangles, "mesh");
+            std::cerr << filename.toStdString() << std::endl;
         }
 }
 
+
 int 
-PCLViewer::loadAsync(QString &filename) 
+PCLViewer::loadAsync(int i) 
 {
 
-      std::cerr << "开始加载点云数据 ....." << std::endl;
+    std::cerr << "开始加载点云数据 ....." << std::endl;
     if (pcl::io::loadPCDFile<pcl::PointXYZ>(filename.toStdString (), *cloud) == -1)
         {
             PCL_ERROR("Couldn't read file mypointcloud.pcd\n");  //若读取失败将提示
@@ -210,63 +219,66 @@ PCLViewer::loadAsync(QString &filename)
         }
     std::cerr << "点云读入   完成" << std::endl;
     poissonReconstruction();
-    viewer_->addPolygonMesh(triangles, "mesh");
+    //  poissonReconstruction();
+
+    // viewer_->updatePolygonMesh(triangles, filename.toStdString ());
+    // viewer_->addPolygonMesh(triangles, "mesh");
     paintCloud();
     /*
-    PointCloudT::Ptr cloud_tmp (new PointCloudT);
-    PointCloud::Ptr cloud1_tmp(new PointCloud);
+      PointCloudT::Ptr cloud_tmp (new PointCloudT);
+      PointCloud::Ptr cloud1_tmp(new PointCloud);
 
-    int return_status;
+      int return_status;
 
-    if (filename.endsWith (".ply", Qt::CaseInsensitive))
-        {
-            return_status = pcl::io::loadPCDFile (filename.toStdString (), *cloud_tmp);
+      if (filename.endsWith (".ply", Qt::CaseInsensitive))
+      {
+      return_status = pcl::io::loadPCDFile (filename.toStdString (), *cloud_tmp);
 
-            // If point cloud contains NaN values, remove them before updating the visualizer point cloud
-            if (cloud_tmp->is_dense)
-                {
-                    pcl::copyPointCloud (*cloud_tmp, *cloud_);
-                    // pcl::copyPointCloud (*cloud_tmp, *cloud_);
-                }
-            else
-                {
-                    PCL_WARN("Cloud is not dense! Non finite points will be removed\n");
-                    std::vector<int> vec;
-                    pcl::removeNaNFromPointCloud (*cloud_tmp, *cloud_, vec);
-                }
+      // If point cloud contains NaN values, remove them before updating the visualizer point cloud
+      if (cloud_tmp->is_dense)
+      {
+      pcl::copyPointCloud (*cloud_tmp, *cloud_);
+      // pcl::copyPointCloud (*cloud_tmp, *cloud_);
+      }
+      else
+      {
+      PCL_WARN("Cloud is not dense! Non finite points will be removed\n");
+      std::vector<int> vec;
+      pcl::removeNaNFromPointCloud (*cloud_tmp, *cloud_, vec);
+      }
 
-            paintCloud();
+      paintCloud();
             
-        }
-    else if (filename.endsWith (".pcd", Qt::CaseInsensitive)){
-        return_status = pcl::io::loadPCDFile<Point> (filename, *cloud);
+      }
+      else if (filename.endsWith (".pcd", Qt::CaseInsensitive)){
+      return_status = pcl::io::loadPCDFile<Point> (filename, *cloud);
 
- std::cerr << "File load done!!" << std::endl;
+      std::cerr << "File load done!!" << std::endl;
        
-        if (cloud1_tmp->is_dense)
-            {
-                pcl::copyPointCloud (*cloud1_tmp, *cloud);
+      if (cloud1_tmp->is_dense)
+      {
+      pcl::copyPointCloud (*cloud1_tmp, *cloud);
                
-            }
-        else
-            {
-                PCL_WARN("Cloud is not dense! Non finite points will be removed\n");
-                std::vector<int> vec;
-                pcl::removeNaNFromPointCloud (*cloud1_tmp, *cloud, vec);
-            }
+      }
+      else
+      {
+      PCL_WARN("Cloud is not dense! Non finite points will be removed\n");
+      std::vector<int> vec;
+      pcl::removeNaNFromPointCloud (*cloud1_tmp, *cloud, vec);
+      }
 
-        paintCloud();
-    }
+      paintCloud();
+      }
    
-    else return_status = 1;
+      else return_status = 1;
 
 
 
-    if (return_status != 0)
-        {
-            PCL_ERROR("Error reading data %s\n", filename.toStdString ().c_str ());
-            return;
-        }
+      if (return_status != 0)
+      {
+      PCL_ERROR("Error reading data %s\n", filename.toStdString ().c_str ());
+      return;
+      }
     */
     // If point cloud contains NaN values, remove them before updating the visualizer point cloud
   
@@ -308,24 +320,24 @@ PCLViewer::poissonReconstruction()
     //创建多边形网格对象,用来存储重建结果
   
 
-    //设置参数
-    gp3.setSearchRadius(25);  // 设置连接点之间的最大距离（最大边长）用于确定k近邻的球半径（默认为0）
-    gp3.setMu(2.5);  // 设置最近邻距离的乘子，已得到每个点的最终搜索半径（默认为0）
-    gp3.setMaximumNearestNeighbors(100);  //设置搜索的最近邻点的最大数量
-    gp3.setMaximumSurfaceAngle(M_PI / 2); // 45 degrees 最大平面角
-    gp3.setMinimumAngle(M_PI / 18); // 10 degrees 每个三角的最大角度
-    gp3.setMaximumAngle(2 * M_PI / 3); // 120 degrees
-    gp3.setNormalConsistency(false);  //若法向量一致，设为true
-    // 设置点云数据和搜索方式
-    gp3.setInputCloud(cloud_with_normals);
-    gp3.setSearchMethod(tree2);
-    //开始重建
-    gp3.reconstruct(triangles);
-    std::cerr << "重建   完成" << std::endl;
+     //设置参数
+     gp3.setSearchRadius(25);  // 设置连接点之间的最大距离（最大边长）用于确定k近邻的球半径（默认为0）
+     gp3.setMu(2.5);  // 设置最近邻距离的乘子，已得到每个点的最终搜索半径（默认为0）
+     gp3.setMaximumNearestNeighbors(100);  //设置搜索的最近邻点的最大数量
+     gp3.setMaximumSurfaceAngle(M_PI / 2); // 45 degrees 最大平面角
+     gp3.setMinimumAngle(M_PI / 18); // 10 degrees 每个三角的最大角度
+     gp3.setMaximumAngle(2 * M_PI / 3); // 120 degrees
+     gp3.setNormalConsistency(false);  //若法向量一致，设为true
+     // 设置点云数据和搜索方式
+     gp3.setInputCloud(cloud_with_normals);
+     gp3.setSearchMethod(tree2);
+     //开始重建
+     gp3.reconstruct(triangles);
+     std::cerr << "重建   完成" << std::endl;
 
-    //将重建结果保存到硬盘文件中,重建结果以VTK格式存储
-    pcl::io::saveVTKFile("mymesh.vtk", triangles); 
+     //将重建结果保存到硬盘文件中,重建结果以VTK格式存储
+     pcl::io::saveVTKFile("mymesh.vtk", triangles); 
 
 
-}
+ }
 

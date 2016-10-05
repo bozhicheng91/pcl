@@ -89,13 +89,13 @@ void poissonReconstruction();
 
 
        void
-       addOrUpdateCloud(pcl::visualization::PointCloudColorHandler<pcl::PointXYZRGBA> &handler);
+       addOrUpdateCloud();
 
        void
-       load (QString &filename);
+       load ();
 
        int 
-       loadAsync (QString &filename);
+       loadAsync (int i);
        void
        paintCloud();
 
@@ -104,7 +104,10 @@ void poissonReconstruction();
        Ui::PCLViewer *ui;
 
        bool first_time;
+       
+       QString filename;
 
+   
 };
 
 #endif // PCLVIEER_H
